@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Agent Zero</string>
+    <string name="cloud_api_base_hint">Cloud API Base URL</string>
+    <string name="cloud_api_key_hint">Cloud API Key</string>
+    <string name="ollama_base_hint">Ollama Server Base URL</string>
+    <string name="save">Save</string>
+    <string name="test_connection">Test Connection</string>
+    <string name="send">Send</string>
+    <string name="model">Model</string>
+    <string name="message_hint">Type a message…</string>
+</resources>
