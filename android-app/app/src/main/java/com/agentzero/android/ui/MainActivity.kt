@@ -2,6 +2,7 @@ package com.agentzero.android.ui
 
 import android.content.Context
 import android.os.Bundle
+import android.content.Intent
 import android.text.Editable
 import android.text.TextWatcher
 import android.widget.EditText
@@ -54,5 +55,11 @@ class MainActivity : ComponentActivity() {
         val cloudKey = prefs.getString("cloud_key", null)
         val ollamaBase = prefs.getString("ollama_base", null)
         vm.updateConfig(cloudBase, cloudKey, ollamaBase)
+
+        // Long-click send to open settings
+        sendButton.setOnLongClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+            true
+        }
     }
 }
