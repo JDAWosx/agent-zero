@@ -10,6 +10,7 @@
         android:label="Agent Zero"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.AgentZero">
         <activity
             android:name=".ui.SettingsActivity"
