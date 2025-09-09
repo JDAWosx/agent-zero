@@ -8,5 +8,7 @@
     <string name="test_connection">Test Connection</string>
     <string name="send">Send</string>
     <string name="model">Model</string>
+    <string name="current_model">Current Model</string>
+    <string name="choose_model">Choose Model</string>
     <string name="message_hint">Type a message…</string>
 </resources>

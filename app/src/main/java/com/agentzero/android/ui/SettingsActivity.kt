@@ -6,6 +6,8 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.agentzero.android.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +27,16 @@ class SettingsActivity : ComponentActivity() {
         val btnTest = findViewById<Button>(R.id.btnTest)
         val txtStatus = findViewById<TextView>(R.id.txtStatus)
 
-        val prefs = getSharedPreferences("agentzero_prefs", Context.MODE_PRIVATE)
+        val masterKey = MasterKey.Builder(this)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        val prefs = EncryptedSharedPreferences.create(
+            this,
+            "agentzero_secure_prefs",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
         editCloudBase.setText(prefs.getString("cloud_base", ""))
         editCloudKey.setText(prefs.getString("cloud_key", ""))
         editOllamaBase.setText(prefs.getString("ollama_base", ""))

@@ -3,8 +3,7 @@ package com.agentzero.android.ui
 import android.content.Context
 import android.os.Bundle
 import android.content.Intent
-import android.text.Editable
-import android.text.TextWatcher
+
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.LinearLayout
@@ -28,6 +27,7 @@ class MainActivity : ComponentActivity() {
         val scrollView = findViewById<ScrollView>(R.id.scrollView)
         val messageInput = findViewById<EditText>(R.id.messageInput)
         val sendButton = findViewById<ImageButton>(R.id.sendButton)
+        val btnSettings = findViewById<android.widget.Button>(R.id.btnSettings)
 
         lifecycleScope.launch {
             vm.messages.collectLatest { msgs ->
@@ -50,15 +50,39 @@ class MainActivity : ComponentActivity() {
         }
 
         // Load saved endpoints
-        val prefs = getSharedPreferences("agentzero_prefs", Context.MODE_PRIVATE)
-        val cloudBase = prefs.getString("cloud_base", null)
-        val cloudKey = prefs.getString("cloud_key", null)
-        val ollamaBase = prefs.getString("ollama_base", null)
+        val securePrefs = androidx.security.crypto.EncryptedSharedPreferences.create(
+            this,
+            "agentzero_secure_prefs",
+            androidx.security.crypto.MasterKey.Builder(this).setKeyScheme(androidx.security.crypto.MasterKey.KeyScheme.AES256_GCM).build(),
+            androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+        val cloudBase = securePrefs.getString("cloud_base", null)
+        val cloudKey = securePrefs.getString("cloud_key", null)
+        val ollamaBase = securePrefs.getString("ollama_base", null)
         vm.updateConfig(cloudBase, cloudKey, ollamaBase)
+        vm.setModel(securePrefs.getString("model_name", null))
 
-        // Long-click send to open settings
-        sendButton.setOnLongClickListener {
+        btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        btnSettings.setOnLongClickListener {
+            // Model picker on long press
+            val models = listOf(
+                "gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo",
+                "llama3.1", "mistral", "phi3:latest"
+            )
+            ModelPickerDialog(this, models, null) { picked ->
+                val securePrefs = androidx.security.crypto.EncryptedSharedPreferences.create(
+                    this,
+                    "agentzero_secure_prefs",
+                    androidx.security.crypto.MasterKey.Builder(this).setKeyScheme(androidx.security.crypto.MasterKey.KeyScheme.AES256_GCM).build(),
+                    androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                )
+                securePrefs.edit().putString("model_name", picked).apply()
+                vm.setModel(picked)
+            }.show()
             true
         }
     }

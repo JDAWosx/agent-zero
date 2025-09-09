@@ -1,6 +1,8 @@
 package com.agentzero.android.api
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -150,5 +152,97 @@ class AIRepository {
             if (!response.isNullOrEmpty()) return response
         } catch (_: Throwable) {}
         return body.take(2000)
+    }
+
+    // Streaming API
+    fun chatStream(prompt: String, model: String = "gpt-4o-mini"): Flow<String> = flow {
+        val ollama = ollamaBase
+        if (!ollama.isNullOrBlank()) {
+            emitAllOllamaStream(ollama, prompt, model) { chunk -> emit(chunk) }
+            return@flow
+        }
+        val cloud = cloudBase
+        val key = cloudKey
+        if (!cloud.isNullOrBlank() && !key.isNullOrBlank()) {
+            emitAllCloudStream(cloud, key, prompt, model) { chunk -> emit(chunk) }
+            return@flow
+        }
+        emit("No endpoints configured. Open settings to add Cloud API/Ollama.")
+    }
+
+    private fun emitAllCloudStream(base: String, key: String, prompt: String, model: String, emit: (String) -> Unit) {
+        val url = if (base.endsWith("/")) base + "v1/chat/completions" else "$base/v1/chat/completions"
+        val payload = org.json.JSONObject(
+            mapOf(
+                "model" to model,
+                "stream" to true,
+                "messages" to listOf(mapOf("role" to "user", "content" to prompt))
+            )
+        ).toString()
+        val req = okhttp3.Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $key")
+            .addHeader("Content-Type", "application/json")
+            .post(payload.toRequestBody(jsonMedia))
+            .build()
+        client.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) {
+                emit("Cloud stream error: ${resp.code} ${resp.message}")
+                return
+            }
+            val source = resp.body?.source() ?: return
+            while (!source.exhausted()) {
+                val line = source.readUtf8Line() ?: break
+                if (line.isBlank()) continue
+                if (line.startsWith("data:")) {
+                    val data = line.removePrefix("data:").trim()
+                    if (data == "[DONE]") break
+                    try {
+                        val obj = org.json.JSONObject(data)
+                        val choices = obj.optJSONArray("choices")
+                        if (choices != null && choices.length() > 0) {
+                            val delta = choices.getJSONObject(0).optJSONObject("delta")
+                            val content = delta?.optString("content")
+                            if (!content.isNullOrEmpty()) emit(content)
+                        }
+                    } catch (_: Throwable) {}
+                }
+            }
+        }
+    }
+
+    private fun emitAllOllamaStream(base: String, prompt: String, model: String, emit: (String) -> Unit) {
+        val baseUrl = if (base.endsWith("/")) base.trimEnd('/') else base
+        val url = "$baseUrl/api/generate"
+        val payload = org.json.JSONObject(
+            mapOf(
+                "model" to model,
+                "prompt" to prompt,
+                "stream" to true
+            )
+        ).toString()
+        val req = okhttp3.Request.Builder()
+            .url(url)
+            .addHeader("Content-Type", "application/json")
+            .post(payload.toRequestBody(jsonMedia))
+            .build()
+        client.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) {
+                emit("Ollama stream error: ${resp.code} ${resp.message}")
+                return
+            }
+            val source = resp.body?.source() ?: return
+            while (!source.exhausted()) {
+                val line = source.readUtf8Line() ?: break
+                if (line.isBlank()) continue
+                try {
+                    val obj = org.json.JSONObject(line)
+                    val content = obj.optString("response")
+                    if (!content.isNullOrEmpty()) emit(content)
+                    val done = obj.optBoolean("done", false)
+                    if (done) break
+                } catch (_: Throwable) {}
+            }
+        }
     }
 }
