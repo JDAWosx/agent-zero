@@ -1,11 +1,18 @@
 import time
-import docker
 import atexit
 from typing import Optional
 from python.helpers.files import get_abs_path
 from python.helpers.errors import format_error
 from python.helpers.print_style import PrintStyle
 from python.helpers.log import Log
+
+# Import docker conditionally for Android compatibility
+try:
+    import docker
+    DOCKER_AVAILABLE = True
+except ImportError:
+    DOCKER_AVAILABLE = False
+    docker = None
 
 class DockerContainerManager:
     def __init__(self, image: str, name: str, ports: Optional[dict[str, int]] = None, volumes: Optional[dict[str, dict[str, str]]] = None,logger: Log|None=None):
@@ -18,6 +25,15 @@ class DockerContainerManager:
                 
     def init_docker(self):
         self.client = None
+
+        # Check if Docker is available
+        if not DOCKER_AVAILABLE:
+            msg = "Docker is not available in this environment. Code execution will use local shell instead."
+            PrintStyle.warning(msg)
+            if self.logger:
+                self.logger.log(type="warning", content=msg)
+            return None
+
         while not self.client:
             try:
                 self.client = docker.from_env()

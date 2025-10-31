@@ -3,6 +3,7 @@ from types import ModuleType
 from typing import Any, Type, TypeVar
 from .dirty_json import DirtyJson
 from .files import get_abs_path, deabsolute_path
+from .android_compat import filter_tools_for_platform
 import regex
 from fnmatch import fnmatch
 
@@ -82,8 +83,13 @@ def load_classes_from_folder(folder: str, name_pattern: str, base_class: Type[T]
         [file_name for file_name in os.listdir(abs_folder) if fnmatch(file_name, name_pattern) and file_name.endswith(".py")]
     )
 
-    # Iterate through the sorted list of files
-    for file_name in py_files:
+    # Filter tools based on platform compatibility (Android/Termux)
+    tool_names = [f.replace('.py', '') for f in py_files]
+    compatible_tool_names = filter_tools_for_platform(tool_names)
+    compatible_py_files = [f + '.py' for f in compatible_tool_names]
+
+    # Iterate through the sorted list of compatible files
+    for file_name in compatible_py_files:
         file_path = os.path.join(abs_folder, file_name)
         # Use the new import_module function
         module = import_module(file_path)
